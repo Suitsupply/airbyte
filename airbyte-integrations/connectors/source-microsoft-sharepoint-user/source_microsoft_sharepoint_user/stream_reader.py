@@ -67,6 +67,10 @@ class SourceMicrosoftSharePointUserStreamReader(AbstractFileBasedStreamReader):
     ) -> Iterable[RemoteFile]:
         directories = [self._config.folder_path or "/"]
 
+        default_globs = globs
+        if not default_globs:
+            default_globs = ['**/*']
+
         # Iterate through directories and subdirectories
         while directories:
             current_dir = directories.pop()
@@ -75,27 +79,28 @@ class SourceMicrosoftSharePointUserStreamReader(AbstractFileBasedStreamReader):
                 folder = self.sharepoint_client.client_context.web.get_folder_by_server_relative_url(folder_url)
                 self.sharepoint_client.client_context.load(folder)
                 self.sharepoint_client.client_context.execute_query()
-                items = folder.files
+                
+                subfolders = folder.folders
+                files = folder.files
 
-                self.sharepoint_client.client_context.load(items)
+                self.sharepoint_client.client_context.load(subfolders)
+                self.sharepoint_client.client_context.execute_query()
+
+                self.sharepoint_client.client_context.load(files)
                 self.sharepoint_client.client_context.execute_query()
 
             except Exception as e:
                 logger.warning(f"Failed to list files in directory: {e}")
                 continue
 
-            default_globs = globs
-            if not default_globs:
-                default_globs = ['**/*']
-
-            for item in items:
-                if isinstance(item, Folder):
-                    directories.append(f"{current_dir}/{item.name}")
-                else:
-                    yield from self.filter_files_by_globs_and_start_date(
-                        [RemoteFile(uri=f"{current_dir}/{item.name}", last_modified=item.time_last_modified)],
-                        default_globs,
-                    )
+            for item in subfolders:
+                directories.append(f"{current_dir}/{item.name}")
+            
+            for item in files:
+                yield from self.filter_files_by_globs_and_start_date(
+                    [RemoteFile(uri=f"{current_dir}/{item.name}", last_modified=item.time_last_modified)],
+                    default_globs,
+                )
 
 
     def open_file(self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger) -> IOBase:
