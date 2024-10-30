@@ -17,14 +17,11 @@ include = "source_microsoft_sharepoint_user"
 
 [tool.poetry.dependencies]
 python = "^3.10,<3.12"
-Office365-REST-Python-Client = "==2.5.12"
+Office365-REST-Python-Client ="==2.5.12"
+airbyte-cdk = {version="^4", extras=["file-based",]}
 
 [tool.poetry.scripts]
 source-microsoft-sharepoint-user = "source_microsoft_sharepoint_user.run:run"
-
-[tool.poetry.dependencies.airbyte-cdk]
-extras = [ "file-based",]
-version = "^4"
 
 [tool.poetry.group.dev.dependencies]
 pytest-mock = "^3.6.1"

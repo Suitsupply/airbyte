@@ -5,8 +5,9 @@
 
 import logging
 from datetime import datetime
-from io import IOBase, BytesIO
+from io import IOBase, BytesIO, StringIO
 from typing import Iterable, List, Optional
+import gzip
 
 from airbyte_cdk import AirbyteTracedException, FailureType
 from airbyte_cdk.sources.file_based.file_based_stream_reader import AbstractFileBasedStreamReader, FileReadMode
@@ -105,11 +106,6 @@ class SourceMicrosoftSharePointUserStreamReader(AbstractFileBasedStreamReader):
 
     def open_file(self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger) -> IOBase:
         try:
-            if mode == FileReadMode.READ:
-                raise ValueError(
-                    "Microsoft Sharepoint data can only be processed using the document file type format. Please set the format accordingly or adjust the glob pattern."
-                )
-
             response = File.open_binary(self.sharepoint_client.client_context, f"/sites/{self._config.sharepoint_site}/{file.uri}")
             binary_data = BytesIO(response.content)
 
@@ -117,11 +113,16 @@ class SourceMicrosoftSharePointUserStreamReader(AbstractFileBasedStreamReader):
             if file_extension in ["gz"]:
             
                 binary_data.seek(0)
-                with gzip.GzipFile(filename=file_name, fileobj=binary_data, mode='rb') as gz_file:
+                with gzip.GzipFile(filename=file.uri, fileobj=binary_data, mode='rb') as gz_file:
                     # Read the content into a BytesIO variable
-                    binary_data = BytesIO(gz_file.read())              
+                    binary_data = BytesIO(gz_file.read())
+
+            if mode == FileReadMode.READ:
+                text_data = binary_data.getvalue().decode(encoding or "utf-8")
+                return StringIO(text_data)
             
+            return binary_data
+
         except Exception as e:
             logger.exception(f"Error opening file {file.uri}: {e}")
-        
-        return binary_data
+            raise Exception(f"Error opening file {file.uri}: {e}")
