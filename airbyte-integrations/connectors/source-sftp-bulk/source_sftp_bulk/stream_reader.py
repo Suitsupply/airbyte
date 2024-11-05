@@ -4,7 +4,8 @@
 import datetime
 import logging
 import stat
-from io import IOBase
+import gzip
+from io import IOBase, TextIOWrapper
 from typing import Iterable, List, Optional
 
 from airbyte_cdk.sources.file_based.file_based_stream_reader import AbstractFileBasedStreamReader, FileReadMode
@@ -78,18 +79,41 @@ class SourceSFTPBulkStreamReader(AbstractFileBasedStreamReader):
                         globs,
                     )
 
-    def open_file(self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger) -> IOBase:
-        if not self.use_file_transfer():
-            remote_file = self.sftp_client.sftp_connection.open(file.uri, mode=mode.value)
-        else:
-            remote_file = self.sftp_client.sftp_connection.open(file.uri, mode=mode.value, bufsize=262144)
-            # prefetch() works by requesting multiple blocks of data in advance,
-            # rather than waiting for one block to be retrieved before requesting the next.
-            # This is a boost for reading but can cause memory errors, should be removed
-            # when we work on https://github.com/airbytehq/airbyte-internal-issues/issues/10480
-            remote_file.prefetch(remote_file.stat().st_size)
-        return remote_file
+    def open_file(
+        self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger
+    ) -> IOBase:
+        try:
+            # Determine file mode for gzip and standard files
+            open_mode = 'rt' if mode == FileReadMode.READ else 'rb'
+            open_encoding = encoding or 'utf-8'
+            errors = "replace"
 
-    def file_size(self, file: RemoteFile):
-        file_size = self.sftp_client.sftp_connection.stat(file.uri).st_size
-        return file_size
+            # Open gzipped files with gzip and apply error handling in text mode
+            if file.uri.endswith('.gz'):
+                remote_file = self.sftp_client.sftp_connection.open(file.uri, mode='rb')  # Open as binary for gzip handling
+                if mode == FileReadMode.READ:
+                    remote_file = gzip.open(remote_file, mode=open_mode, encoding=open_encoding, errors=errors)
+                else:
+                    remote_file = gzip.open(remote_file, mode='rb')
+
+            else:
+                # Check if prefetching or buffer size adjustments are necessary
+                if not self.use_file_transfer():
+                    remote_file = self.sftp_client.sftp_connection.open(file.uri, mode=mode.value)
+                else:
+                    remote_file = self.sftp_client.sftp_connection.open(file.uri, mode=mode.value, bufsize=262144)
+                    # prefetch() works by requesting multiple blocks of data in advance,
+                    # rather than waiting for one block to be retrieved before requesting the next.
+                    # This is a boost for reading but can cause memory errors, should be removed
+                    # when we work on https://github.com/airbytehq/airbyte-internal-issues/issues/10480
+                    remote_file.prefetch(remote_file.stat().st_size)
+
+                # Apply encoding and error handling if in text read mode
+                if mode == FileReadMode.READ:
+                    remote_file = TextIOWrapper(remote_file, encoding=open_encoding, errors=errors)
+
+            return remote_file
+
+        except Exception as e:
+            logger.exception(f"Error opening file {file.uri}: {e}")
+            raise Exception(f"Error opening file {file.uri}: {e}")
