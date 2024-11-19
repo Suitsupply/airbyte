@@ -74,27 +74,27 @@ class SourceSFTPBulkStreamReader(AbstractFileBasedStreamReader):
                 if item.st_mode and stat.S_ISDIR(item.st_mode):
                     directories.append(f"{current_dir}/{item.filename}")
                 else:
+                    # Skip empty files
+                    if item.st_size == 0:
+                        logger.info(f"Skipping empty file: {current_dir}/{item.filename}")
+                        continue
+
                     yield from self.filter_files_by_globs_and_start_date(
                         [RemoteFile(uri=f"{current_dir}/{item.filename}", last_modified=datetime.datetime.fromtimestamp(item.st_mtime))],
                         globs,
                     )
 
-    def open_file(
-        self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger
-    ) -> IOBase:
+    def open_file(self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger) -> IOBase:
         try:
             # Determine file mode for gzip and standard files
             open_mode = 'rt' if mode == FileReadMode.READ else 'rb'
             open_encoding = encoding or 'utf-8'
-            errors = "replace"
+            errors = "ignore"
 
-            # Open gzipped files with gzip and apply error handling in text mode
+            # Open gzipped files with gzip
             if file.uri.endswith('.gz'):
                 remote_file = self.sftp_client.sftp_connection.open(file.uri, mode='rb')  # Open as binary for gzip handling
-                if mode == FileReadMode.READ:
-                    remote_file = gzip.open(remote_file, mode=open_mode, encoding=open_encoding, errors=errors)
-                else:
-                    remote_file = gzip.open(remote_file, mode='rb')
+                remote_file = gzip.open(remote_file, mode=open_mode, encoding=open_encoding if mode == FileReadMode.READ else None, errors=errors)
 
             else:
                 # Check if prefetching or buffer size adjustments are necessary
@@ -102,10 +102,6 @@ class SourceSFTPBulkStreamReader(AbstractFileBasedStreamReader):
                     remote_file = self.sftp_client.sftp_connection.open(file.uri, mode=mode.value)
                 else:
                     remote_file = self.sftp_client.sftp_connection.open(file.uri, mode=mode.value, bufsize=262144)
-                    # prefetch() works by requesting multiple blocks of data in advance,
-                    # rather than waiting for one block to be retrieved before requesting the next.
-                    # This is a boost for reading but can cause memory errors, should be removed
-                    # when we work on https://github.com/airbytehq/airbyte-internal-issues/issues/10480
                     remote_file.prefetch(remote_file.stat().st_size)
 
                 # Apply encoding and error handling if in text read mode
@@ -117,3 +113,7 @@ class SourceSFTPBulkStreamReader(AbstractFileBasedStreamReader):
         except Exception as e:
             logger.exception(f"Error opening file {file.uri}: {e}")
             raise Exception(f"Error opening file {file.uri}: {e}")
+        
+    def file_size(self, file: RemoteFile):
+        file_size = self.sftp_client.sftp_connection.stat(file.uri).st_size
+        return file_size

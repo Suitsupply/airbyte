@@ -55,8 +55,13 @@ class ExcelParser(FileTypeParser):
 
         fields: Dict[str, str] = {}
 
+        config_format = _extract_format(config)
+        rows_to_skip = (
+            config_format.skip_rows_before_header
+        )        
+
         with stream_reader.open_file(file, self.file_read_mode, self.ENCODING, logger) as fp:
-            df = self.open_and_parse_file(fp)
+            df = self.open_and_parse_file(fp, rows_to_skip=rows_to_skip)
             for column, df_type in df.dtypes.items():
                 # Choose the broadest data type if the column's data type differs in dataframes
                 prev_frame_column_type = fields.get(column)
@@ -93,10 +98,15 @@ class ExcelParser(FileTypeParser):
         # Validate the format of the config
         self.validate_format(config.format, logger)
 
+        config_format = _extract_format(config)
+        rows_to_skip = (
+            config_format.skip_rows_before_header
+        )            
+
         try:
             # Open and parse the file using the stream reader
             with stream_reader.open_file(file, self.file_read_mode, self.ENCODING, logger) as fp:
-                df = self.open_and_parse_file(fp)
+                df = self.open_and_parse_file(fp, rows_to_skip=rows_to_skip)
                 # Yield records as dictionaries
                 # DataFrame.to_dict() method returns datetime values in pandas.Timestamp values, which are not serializable by orjson
                 # DataFrame.to_json() returns string with datetime values serialized to iso8601 with microseconds to align with pydantic behavior
@@ -159,7 +169,7 @@ class ExcelParser(FileTypeParser):
             raise ConfigValidationError(FileBasedSourceError.CONFIG_VALIDATION_ERROR)
 
     @staticmethod
-    def open_and_parse_file(fp: Union[IOBase, str, Path]) -> pd.DataFrame:
+    def open_and_parse_file(fp: Union[IOBase, str, Path], rows_to_skip: int = 0) -> pd.DataFrame:
         """
         Opens and parses the Excel file.
 
@@ -169,4 +179,10 @@ class ExcelParser(FileTypeParser):
         Returns:
             pd.DataFrame: Parsed data from the Excel file.
         """
-        return pd.ExcelFile(fp, engine="calamine").parse()
+        return pd.ExcelFile(fp, engine="calamine").parse(skiprows=rows_to_skip)
+
+def _extract_format(config: FileBasedStreamConfig) -> ExcelFormat:
+    config_format = config.format
+    if not isinstance(config_format, ExcelFormat):
+        raise ValueError(f"Invalid format config: {config_format}")
+    return config_format

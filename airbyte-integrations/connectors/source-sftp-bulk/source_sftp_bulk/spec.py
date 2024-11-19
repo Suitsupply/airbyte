@@ -59,6 +59,16 @@ class SourceSFTPBulkSpec(AbstractFileBasedSpec):
         default="use_records_transfer",
     )
 
+    delivery_method: Union[DeliverRecords, DeliverRawFiles] = Field(
+        title="Delivery Method",
+        discriminator="delivery_type",
+        type="object",
+        order=7,
+        display_type="radio",
+        group="advanced",
+        default="use_records_transfer",
+    )    
+
     @classmethod
     def documentation_url(cls) -> str:
         return "https://docs.airbyte.com/integrations/sources/sftp-bulk"
