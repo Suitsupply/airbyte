@@ -23,7 +23,7 @@ class SourceFTPSBulkSpec(AbstractFileBasedSpec):
         title="Encryption Method",
         description="Select the FTPS encryption method: Explicit or Implicit",
         default=EncryptionMethod.explicit,
-        display_type="radio",  # Change to "dropdown" if needed
+        display_type="radio",
         examples=["Explicit", "Implicit"],
         order=6,
     )

@@ -1,12 +1,9 @@
-# Copyright (c) 2024 Airbyte, Inc., all rights reserved.
-
-
 import datetime
 import logging
-import stat
 import gzip
-from io import IOBase, TextIOWrapper
+from io import BytesIO, TextIOWrapper, IOBase
 from typing import Iterable, List, Optional
+from ftplib import FTP_TLS, error_perm
 
 from airbyte_cdk.sources.file_based.file_based_stream_reader import AbstractFileBasedStreamReader, FileReadMode
 from airbyte_cdk.sources.file_based.remote_file import RemoteFile
@@ -33,24 +30,21 @@ class SourceFTPSBulkStreamReader(AbstractFileBasedStreamReader):
 
         Therefore, concrete implementations of AbstractFileBasedStreamReader's config setter should assert that `value` is of the correct
         config type for that type of StreamReader.
-        """
+        """        
         assert isinstance(value, SourceFTPSBulkSpec)
         self._config = value
 
     @property
-    def ftps_client(self) -> FTPSClient:
+    def ftps_client(self) -> FTP_TLS:
         if self._ftps_client is None:
-            authentication = (
-                {"password": self.config.credentials.password}
-                if self.config.credentials.auth_type == "password"
-                else {"private_key": self.config.credentials.private_key}
-            )
             self._ftps_client = FTPSClient(
                 host=self.config.host,
                 username=self.config.username,
-                **authentication,
+                password=self.config.password,
                 port=self.config.port,
-            )
+                encryption_method=self.config.encryption_method,
+                fingerprint=self.config.fingerprint,
+            ).ftps_connection
         return self._ftps_client
 
     def get_matching_files(
@@ -65,55 +59,58 @@ class SourceFTPSBulkStreamReader(AbstractFileBasedStreamReader):
         while directories:
             current_dir = directories.pop()
             try:
-                items = self.ftps_client.ftps_connection.listdir_attr(current_dir)
-            except Exception as e:
-                logger.warning(f"Failed to list files in directory: {e}")
+                self.ftps_client.cwd(current_dir)
+                items = self.ftps_client.nlst()
+            except error_perm as e:
+                logger.warning(f"Failed to list files in directory {current_dir}: {e}")
                 continue
 
             for item in items:
-                if item.st_mode and stat.S_ISDIR(item.st_mode):
-                    directories.append(f"{current_dir}/{item.filename}")
-                else:
-                    # Skip empty files
-                    if item.st_size == 0:
-                        logger.info(f"Skipping empty file: {current_dir}/{item.filename}")
-                        continue
+                path = f"{current_dir}/{item}"
+                try:
+                    self.ftps_client.voidcmd(f"SIZE {path}")
+                    is_file = True
+                except error_perm:
+                    is_file = False
 
+                if not is_file:
+                    directories.append(path)
+                else:
                     yield from self.filter_files_by_globs_and_start_date(
-                        [RemoteFile(uri=f"{current_dir}/{item.filename}", last_modified=datetime.datetime.fromtimestamp(item.st_mtime))],
+                        [RemoteFile(uri=path, last_modified=self._get_last_modified(path))],
                         globs,
                     )
 
     def open_file(self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger) -> IOBase:
         try:
             # Determine file mode for gzip and standard files
-            open_mode = 'rt' if mode == FileReadMode.READ else 'rb'
-            open_encoding = encoding or 'utf-8'
+            open_mode = "rt" if mode == FileReadMode.READ else "rb"
+            open_encoding = encoding or "utf-8"
             errors = "ignore"
 
             # Open gzipped files with gzip
-            if file.uri.endswith('.gz'):
-                remote_file = self.ftps_client.ftps_connection.open(file.uri, mode='rb')  # Open as binary for gzip handling
-                remote_file = gzip.open(remote_file, mode=open_mode, encoding=open_encoding if mode == FileReadMode.READ else None, errors=errors)
+            with BytesIO() as buffer:
+                self.ftps_client.retrbinary(f"RETR {file.uri}", buffer.write)
+                buffer.seek(0)
 
-            else:
-                # Check if prefetching or buffer size adjustments are necessary
-                if not self.use_file_transfer():
-                    remote_file = self.ftps_client.ftps_connection.open(file.uri, mode=mode.value)
+                if file.uri.endswith(".gz"):
+                    remote_file = gzip.open(buffer, mode=open_mode, encoding=open_encoding if mode == FileReadMode.READ else None, errors=errors)
                 else:
-                    remote_file = self.ftps_client.ftps_connection.open(file.uri, mode=mode.value, bufsize=262144)
-                    remote_file.prefetch(remote_file.stat().st_size)
+                    remote_file = buffer
 
-                # Apply encoding and error handling if in text read mode
-                if mode == FileReadMode.READ:
+                if mode == FileReadMode.READ and not file.uri.endswith(".gz"):
                     remote_file = TextIOWrapper(remote_file, encoding=open_encoding, errors=errors)
 
-            return remote_file
+                return remote_file
 
         except Exception as e:
             logger.exception(f"Error opening file {file.uri}: {e}")
             raise Exception(f"Error opening file {file.uri}: {e}")
         
     def file_size(self, file: RemoteFile):
-        file_size = self.ftps_client.ftps_connection.stat(file.uri).st_size
-        return file_size
+        response = self.ftps_client.sendcmd(f"SIZE {file.uri}")
+        return int(response.split()[1])
+
+    def _get_last_modified(self, path: str) -> datetime.datetime:
+        response = self.ftps_client.sendcmd(f"MDTM {path}")
+        return datetime.datetime.strptime(response.split()[1], "%Y%m%d%H%M%S")

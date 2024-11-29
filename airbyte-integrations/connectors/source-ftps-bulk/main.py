@@ -3,7 +3,7 @@
 #
 
 
-from source_sftp_bulk.run import run
+from source_ftps_bulk.run import run
 
 if __name__ == "__main__":
     run()
