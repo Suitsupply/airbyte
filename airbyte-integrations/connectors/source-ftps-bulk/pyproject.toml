@@ -1,0 +1,29 @@
+[build-system]
+requires = [ "poetry-core>=1.0.0",]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+version = "1.0.0"
+name = "source-ftps-bulk"
+description = "Source implementation for FTPS Bulk."
+authors = [ "Airbyte <contact@airbyte.io>",]
+license = "MIT"
+readme = "README.md"
+documentation = "https://docs.airbyte.com/integrations/sources/ftps-bulk"
+homepage = "https://airbyte.com"
+repository = "https://github.com/airbytehq/airbyte"
+[[tool.poetry.packages]]
+include = "source_ftps_bulk"
+
+[tool.poetry.dependencies]
+python = "^3.10,<3.12"
+airbyte-cdk = {version = "^6.1.0", extras = ["file-based"]}
+
+[tool.poetry.scripts]
+source-ftps-bulk = "source_ftps_bulk.run:run"
+
+[tool.poetry.group.dev.dependencies]
+docker = "^7.0.0"
+freezegun = "^1.4.0"
+pytest-mock = "^3.6.1"
+pytest = "^6.1"
