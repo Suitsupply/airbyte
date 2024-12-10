@@ -28,7 +28,7 @@ class SourceFTPSBulkSpec(AbstractFileBasedSpec):
         order=6,
     )
     
-    port: int = Field(title="Host Address", description="The server port", default=22, examples=["22"], order=7)
+    port: int = Field(title="Host Port", description="The server port", default=22, examples=["22"], order=7)
     folder_path: Optional[str] = Field(
         title="Folder Path",
         description="The directory to search files for sync",

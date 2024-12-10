@@ -1,5 +1,8 @@
 import logging
 import ftplib
+import hashlib
+import ssl
+
 from typing import Optional
 from airbyte_cdk import AirbyteTracedException, FailureType
 from enum import Enum
@@ -9,6 +12,21 @@ REQUEST_TIMEOUT = 300
 
 logger = logging.getLogger("airbyte")
 
+class ReusedSslSocket(ssl.SSLSocket):
+    def unwrap(self):
+        pass
+
+class SharedFTP_TLS(ftplib.FTP_TLS):
+    """Explicit FTPS, with shared TLS session"""
+    def ntransfercmd(self, cmd, rest=None):
+        conn, size = ftplib.FTP.ntransfercmd(self, cmd, rest)
+        if self._prot_p:
+            conn = self.context.wrap_socket(conn,
+                                            server_hostname=self.host,
+                                            session=self.sock.session)  # reuses TLS session            
+            conn.__class__ = ReusedSslSocket  # we should not close reused ssl socket when file transfers finish
+        return conn, size
+    
 
 class EncryptionMethod(str, Enum):
     explicit = "Explicit"
@@ -38,27 +56,39 @@ class FTPSClient:
 
         self._connect()
 
+
+    def _verify_fingerprint(self):
+        server_cert = self._connection.sock.getpeercert(binary_form=True)
+        actual_fingerprint = hashlib.sha256(server_cert).hexdigest().upper()
+        formatted_fingerprint = ":".join(actual_fingerprint[i:i+2] for i in range(0, len(actual_fingerprint), 2))
+        
+        if formatted_fingerprint == self.fingerprint.upper():
+            logger.info("Fingerprint verification successful.")
+        else:
+            logger.error(f"Fingerprint mismatch!\nExpected: {self.fingerprint}\nActual: {formatted_fingerprint}")
+            self._connection.sock.close()
+            raise ValueError("Fingerprint verification failed.")
+            
+
     def _connect(self):
+        self._connection = None
         try:
-            self._connection = ftplib.FTP_TLS(timeout=self.timeout)
+            ctx = ssl._create_stdlib_context(ssl.PROTOCOL_TLSv1_2)
 
-            # Implicit FTPS starts the TLS negotiation immediately after connecting
-            if self.encryption_method == EncryptionMethod.implicit:
-                self._connection.connect(self.host, self.port)
-                self._connection.auth()  # Implicit encryption
-
-            # Explicit FTPS starts with plain FTP and upgrades to TLS after AUTH command
+            if self.encryption_method == "Explicit":
+                self._connection = SharedFTP_TLS(context=ctx)
+                self._connection.connect(self.host, self.port, timeout=REQUEST_TIMEOUT)
+                self._connection.auth()  # Explicitly upgrade the connection to secure
+            elif self.encryption_method == "Implicit":
+                self._connection = SharedFTP_TLS(context=ctx)
+                self._connection.connect(self.host, self.port, timeout=REQUEST_TIMEOUT)  # Implicit FTPS connects securely by default
             else:
-                self._connection.connect(self.host, self.port)
-                self._connection.login(self.username, self.password)
-                self._connection.prot_p()  # Protect command channel with TLS
+                raise ValueError(f"Unsupported encryption type: {self.encryption_method}. Use 'Explicit' or 'Implicit'.")
 
-            # Verify server fingerprint if provided
-            if self.fingerprint:
-                self._validate_fingerprint()
-
+            self._verify_fingerprint()
             self._connection.login(self.username, self.password)
-            logger.info("FTPS connection established.")
+            self._connection.prot_p()
+            self._connection.set_pasv(True)
 
         except ftplib.error_perm as e:
             raise AirbyteTracedException(
@@ -73,30 +103,30 @@ class FTPSClient:
                 internal_message=str(e),
             )
 
-    def _validate_fingerprint(self):
-        # Fetch the server certificate for fingerprint comparison
-        sock = self._connection.sock
-        server_cert = sock.getpeercert(binary_form=True)
-        from hashlib import sha256
-
-        cert_fingerprint = ":".join(
-            ["{:02x}".format(byte) for byte in sha256(server_cert).digest()]
-        )
-        if cert_fingerprint.lower() != self.fingerprint.lower():
-            raise AirbyteTracedException(
-                failure_type=FailureType.config_error,
-                message="Server fingerprint mismatch.",
-                internal_message=f"Expected {self.fingerprint}, got {cert_fingerprint}.",
-            )
-
-    def __del__(self):
+    def _close_connection(self):
         if self._connection:
             try:
-                self._connection.quit()
-                logger.info("FTPS connection closed.")
-            except Exception as e:
-                logger.warning(f"Error while closing connection: {e}")
+                self._connection.quit()  # Gracefully terminate the FTP session
+                logger.info("Connection closed successfully.")
+            except ftplib.error_perm as e:
+                logger.error(f"Permission error during quit: {e}")
+            except ftplib.all_errors as e:
+                logger.error(f"Error while closing connection: {e}")
+            finally:
+                try:
+                    self._connection.close()  # Close the socket if not closed
+                    logger.info("Socket closed.")
+                except Exception as e:
+                    logger.error(f"Error closing socket: {e}")   
+            
+            logger.info("Erase ftps_connection.")
+            self._connection = None
+
+
+    def __del__(self):
+        self._close_connection()
+
 
     @property
-    def ftps_connection(self) -> ftplib.FTP_TLS:
+    def ftps_connection(self) -> SharedFTP_TLS:
         return self._connection
