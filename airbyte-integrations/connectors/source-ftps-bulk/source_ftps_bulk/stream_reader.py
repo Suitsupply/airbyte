@@ -136,5 +136,5 @@ class SourceFTPSBulkStreamReader(AbstractFileBasedStreamReader):
         return int(response.split()[1])
 
     def _get_last_modified(self, path: str) -> datetime.datetime:
-        timestamp = self.ftps_client.ftps_connection.voidcmd(f"MDTM /TEST/EXPORT/{path}")[4:].strip().split('.')[0]
+        timestamp = self.ftps_client.ftps_connection.voidcmd(f"MDTM {path}")[4:].strip().split('.')[0]
         return datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S")    
