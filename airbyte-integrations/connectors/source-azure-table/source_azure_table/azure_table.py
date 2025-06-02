@@ -9,7 +9,7 @@ from azure.core.paging import ItemPaged
 from azure.data.tables import TableClient, TableServiceClient
 
 from . import constants
-
+import json
 
 class AzureTableReader:
     """
@@ -59,6 +59,8 @@ class AzureTableReader:
         self.connection_string = "DefaultEndpointsProtocol=https;AccountName={};AccountKey={};EndpointSuffix={}".format(
             self.account_name, self.access_key, self.endpoint_suffix
         )
+        query_filters_str = config.get(constants.azure_storage_query_filters, "{}")
+        self.query_filters = json.loads(query_filters_str)        
 
     def get_table_service_client(self) -> TableServiceClient:
         """
@@ -102,17 +104,47 @@ class AzureTableReader:
 
     def read_table(self, table_client: TableClient, filter_query: str = None) -> Iterable:
         """
-        Reads data from an Azure table.
-
-        Parameters
-        ----------
-        table_client : TableClient
-            table client object to be able to access querying methods.
-
-        filter_query : str
-            either None or a query to pull data from table storage (based on the PartitionKey)
+        Reads data from an Azure table with proper pagination handling.
         """
-        if filter_query is None:
-            return table_client.list_entities()
-        else:
-            return table_client.query_entities(query_filter=filter_query, results_per_page=constants.results_per_page)
+        try:
+            if filter_query is None or filter_query == "":
+                self.logger.info("Fetching all entities from the table.")
+                iterator = table_client.list_entities(results_per_page=constants.results_per_page)
+            else:
+                self.logger.info(f"Fetching entities with filter: {filter_query}")
+                iterator = table_client.query_entities(
+                    query_filter=filter_query, 
+                    results_per_page=constants.results_per_page
+                )
+
+            # Process pagination explicitly
+            page_count = 0
+            total_entities = 0
+            
+            for page in iterator.by_page():
+                page_count += 1
+                entities_in_page = 0
+                
+                self.logger.info(f"Processing page {page_count}")
+                
+                for entity in page:
+                    entities_in_page += 1
+                    total_entities += 1
+                    yield entity
+                
+                self.logger.info(f"Page {page_count} processed: {entities_in_page} entities")
+                
+                # If page is empty, we've reached the end
+                if entities_in_page == 0:
+                    self.logger.info("Empty page encountered, ending iteration")
+                    break
+            
+            self.logger.info(f"Finished reading table. Total entities: {total_entities}, Total pages: {page_count}")
+            
+        except Exception as e:
+            self.logger.error(f"Error while reading table: {e}")
+            raise
+        finally:
+            # Note: TableClient doesn't have a close() method in the Azure SDK
+            # The connection is managed by the SDK and will be closed automatically
+            self.logger.info("Table reading operation completed")
