@@ -11,7 +11,7 @@
         "type": "string",
         "description": "The name of your storage account.",
         "order": 0,
-        "airbyte_secret": false
+        "airbyte_secret": true
       },
       "storage_access_key": {
         "title": "Access Key",
@@ -27,7 +27,7 @@
         "order": 2,
         "default": "core.windows.net",
         "examples": ["core.windows.net", "core.chinacloudapi.cn"],
-        "airbyte_secret": false
+        "airbyte_secret": true
       },
       "query_filters": {
         "title": "Query Filters",

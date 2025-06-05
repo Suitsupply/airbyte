@@ -69,8 +69,7 @@ class SourceAzureTable(AbstractSource):
                 name=stream_name,
                 json_schema=schema,
                 supported_sync_modes=[SyncMode.full_refresh, SyncMode.incremental],
-                source_defined_cursor=True,
-                default_cursor_field=["PartitionKey"],
+                source_defined_cursor=False,
             )
             streams.append(stream)
         logger.info(f"Total {len(streams)} streams found.")
@@ -166,7 +165,15 @@ class SourceAzureTable(AbstractSource):
                 if key not in properties and key not in ("PartitionKey", "RowKey"):
                     # Determine property type based on Python type
                     if isinstance(value, str):
-                        properties[key] = {"type": "string"}
+                        # Check if it's a datetime string
+                        if key.lower().endswith(('date', 'time')) or 'timestamp' in key.lower():
+                            properties[key] = {
+                                "type": "string", 
+                                "format": "date-time",
+                                "airbyte_type": "timestamp_without_timezone"
+                            }
+                        else:
+                            properties[key] = {"type": "string"}
                     elif isinstance(value, bool):
                         properties[key] = {"type": "boolean"}
                     elif isinstance(value, (int, float)):

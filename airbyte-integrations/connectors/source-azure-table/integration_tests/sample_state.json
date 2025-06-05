@@ -1,5 +1,5 @@
 {
-  "Test": {
-    "PartitionKey": "1"
+  "EventLog": {
+    "EventDate": "2025-06-04T00:00:00.000000Z"
   }
 }
