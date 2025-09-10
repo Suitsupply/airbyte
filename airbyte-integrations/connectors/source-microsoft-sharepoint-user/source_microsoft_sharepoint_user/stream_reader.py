@@ -40,10 +40,7 @@ class SourceMicrosoftSharePointUserStreamReader(AbstractFileBasedStreamReader):
     def sharepoint_client(self) -> SourceMicrosoftSharePointUserClient:
         if self._sharepoint_client is None:
             self._sharepoint_client = SourceMicrosoftSharePointUserClient(
-                company_url=self.config.company_url,
-                sharepoint_site=self.config.sharepoint_site,
-                user_login=self.config.user_login,
-                user_password=self.config.user_password,
+                config=self.config
             )
         return self._sharepoint_client
 

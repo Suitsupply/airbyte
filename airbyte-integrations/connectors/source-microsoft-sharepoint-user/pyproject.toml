@@ -18,6 +18,7 @@ include = "source_microsoft_sharepoint_user"
 [tool.poetry.dependencies]
 python = "^3.10,<3.12"
 Office365-REST-Python-Client ="==2.5.12"
+msal = "^1.20.0"
 airbyte-cdk = {version="^4", extras=["file-based",]}
 
 [tool.poetry.scripts]
