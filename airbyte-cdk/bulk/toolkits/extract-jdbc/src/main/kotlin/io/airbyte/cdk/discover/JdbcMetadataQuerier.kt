@@ -315,13 +315,21 @@ class JdbcMetadataQuerier(
         return pk
     }
 
-    private data class PrimaryKeyRow(
+    data class PrimaryKeyRow(
         val name: String,
         val ordinal: Int,
         val columnName: String,
     )
 
     override fun extraChecks() {
+        try {
+            val metadata = conn.metaData
+            log.info {
+                "Connected to database: ${metadata.databaseProductName} version ${metadata.databaseProductVersion}"
+            }
+        } catch (e: SQLException) {
+            log.warn(e) { "Unable to retrieve database version information" }
+        }
         checkQueries.executeAll(conn)
     }
 

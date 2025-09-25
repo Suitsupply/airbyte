@@ -25,8 +25,11 @@ import org.jooq.impl.DSL
 import org.jooq.impl.DefaultDataType
 import org.jooq.impl.SQLDataType
 
-class PostgresSqlGenerator(namingTransformer: NamingConventionTransformer, cascadeDrop: Boolean) :
-    JdbcSqlGenerator(namingTransformer, cascadeDrop) {
+class PostgresSqlGenerator(
+    namingTransformer: NamingConventionTransformer,
+    cascadeDrop: Boolean,
+    private val unconstrainedNumber: Boolean,
+) : JdbcSqlGenerator(namingTransformer, cascadeDrop) {
     override fun buildStreamId(
         namespace: String,
         name: String,
@@ -77,6 +80,11 @@ class PostgresSqlGenerator(namingTransformer: NamingConventionTransformer, casca
             // rather than making up an arbitrary length limit.
             return SQLDataType.VARCHAR
         }
+
+        if (airbyteProtocolType == AirbyteProtocolType.NUMBER && unconstrainedNumber) {
+            return SQLDataType.DECIMAL
+        }
+
         return super.toDialectType(airbyteProtocolType)
     }
 
@@ -199,15 +207,19 @@ class PostgresSqlGenerator(namingTransformer: NamingConventionTransformer, casca
                         DSL.`val`(null as String?)
                     )
                     .else_(DSL.cast(field, SQLDataType.VARCHAR))
+            var cleanedText = extractAsText
+            if (type == AirbyteProtocolType.NUMBER) {
+                cleanedText = DSL.trim(extractAsText, "\"")
+            }
             return if (useExpensiveSaferCasting) {
                 DSL.function(
                     DSL.name("pg_temp", "airbyte_safe_cast"),
                     dialectType,
-                    extractAsText,
+                    cleanedText,
                     DSL.cast(DSL.`val`(null as Any?), dialectType)
                 )
             } else {
-                DSL.cast(extractAsText, dialectType)
+                DSL.cast(cleanedText, dialectType)
             }
         }
     }

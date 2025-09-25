@@ -7,6 +7,10 @@ from copy import deepcopy
 from unittest.mock import call
 
 import pytest
+from facebook_business import FacebookAdsApi, FacebookSession
+from source_facebook_marketing import SourceFacebookMarketing
+from source_facebook_marketing.spec import ConnectorConfig
+
 from airbyte_cdk import AirbyteTracedException
 from airbyte_cdk.models import (
     AirbyteConnectionStatus,
@@ -18,36 +22,8 @@ from airbyte_cdk.models import (
     Status,
     SyncMode,
 )
-from facebook_business import FacebookAdsApi, FacebookSession
-from source_facebook_marketing import SourceFacebookMarketing
-from source_facebook_marketing.spec import ConnectorConfig
 
 from .utils import command_check
-
-
-@pytest.fixture(name="config")
-def config_fixture(requests_mock):
-    config = {
-        "account_ids": ["123"],
-        "access_token": "ACCESS_TOKEN",
-        "credentials": {
-            "auth_type": "Service",
-            "access_token": "ACCESS_TOKEN",
-        },
-        "start_date": "2019-10-10T00:00:00Z",
-        "end_date": "2020-10-10T00:00:00Z",
-    }
-    requests_mock.register_uri(
-        "GET",
-        FacebookSession.GRAPH + f"/{FacebookAdsApi.API_VERSION}/me/business_users",
-        json={"data": []},
-    )
-    requests_mock.register_uri(
-        "GET",
-        FacebookSession.GRAPH + f"/{FacebookAdsApi.API_VERSION}/act_123/",
-        json={"account": 123},
-    )
-    return config
 
 
 @pytest.fixture

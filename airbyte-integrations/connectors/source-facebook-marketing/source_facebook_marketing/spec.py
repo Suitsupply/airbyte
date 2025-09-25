@@ -6,13 +6,15 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Literal, Optional, Set, Union
 
-from airbyte_cdk.sources.config import BaseConfig
-from airbyte_cdk.utils.oneof_option_config import OneOfOptionConfig
 from facebook_business.adobjects.ad import Ad
 from facebook_business.adobjects.adset import AdSet
 from facebook_business.adobjects.adsinsights import AdsInsights
 from facebook_business.adobjects.campaign import Campaign
 from pydantic.v1 import BaseModel, Field, PositiveInt, constr
+
+from airbyte_cdk.sources.config import BaseConfig
+from airbyte_cdk.utils.oneof_option_config import OneOfOptionConfig
+
 
 logger = logging.getLogger("airbyte")
 
@@ -118,6 +120,7 @@ class InsightConfig(BaseModel):
             "When you query the API with action_report_time=conversion, you see a conversion on Jan 2nd."
         ),
         default="mixed",
+        airbyte_hidden=True,
         enum=["conversion", "impression", "mixed"],
     )
 
@@ -257,9 +260,20 @@ class ConnectorConfig(BaseConfig):
         description="Set to active if you want to fetch the thumbnail_url and store the result in thumbnail_data_url for each Ad Creative.",
     )
 
+    default_ads_insights_action_breakdowns: Optional[List[ValidActionBreakdowns]] = Field(
+        title="Action breakdowns for the Built-in Ads Insight stream",
+        order=8,
+        default=[
+            AdsInsights.ActionBreakdowns.action_type,
+            AdsInsights.ActionBreakdowns.action_target_id,
+            AdsInsights.ActionBreakdowns.action_destination,
+        ],
+        description="Action breakdowns for the Built-in Ads Insights stream that will be used in the request. You can override default values or remove them to make it empty if needed.",
+    )
+
     custom_insights: Optional[List[InsightConfig]] = Field(
         title="Custom Insights",
-        order=8,
+        order=9,
         description=(
             "A list which contains ad statistics entries, each entry must have a name and can contains fields, "
             'breakdowns or action_breakdowns. Click on "add" to fill this field.'
