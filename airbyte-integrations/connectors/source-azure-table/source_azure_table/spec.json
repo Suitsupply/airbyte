@@ -11,7 +11,7 @@
         "type": "string",
         "description": "The name of your storage account.",
         "order": 0,
-        "airbyte_secret": false
+        "airbyte_secret": true
       },
       "storage_access_key": {
         "title": "Access Key",
@@ -27,7 +27,15 @@
         "order": 2,
         "default": "core.windows.net",
         "examples": ["core.windows.net", "core.chinacloudapi.cn"],
-        "airbyte_secret": false
+        "airbyte_secret": true
+      },
+      "query_filters": {
+        "title": "Query Filters",
+        "type": "string",
+        "description": "Optional per-table OData filters in JSON string format. The key is the table name, and the value is the OData filter string for that table.",
+        "examples": [
+          "{\"EventLog\": \"EventDate ge datetime'2025-01-01T00:00:00.000000Z'\", \"CustomerMessage\": \"CreatedDate ge datetime'2025-01-01T00:00:00.000000Z'\"}"
+        ]
       }
     }
   }

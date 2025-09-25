@@ -63,12 +63,13 @@ class SourceAzureTable(AbstractSource):
         streams = []
         for table in tables:
             stream_name = table.name
+            # Use dynamic schema discovery instead of static schema
+            schema = self.get_table_schema(table.name, logger, config)
             stream = AirbyteStream(
                 name=stream_name,
-                json_schema=self.get_typed_schema,
+                json_schema=schema,
                 supported_sync_modes=[SyncMode.full_refresh, SyncMode.incremental],
-                source_defined_cursor=True,
-                default_cursor_field=["PartitionKey"],
+                source_defined_cursor=False,
             )
             streams.append(stream)
         logger.info(f"Total {len(streams)} streams found.")
@@ -133,3 +134,61 @@ class SourceAzureTable(AbstractSource):
                     logger.info(timer.report())
 
         logger.info(f"Finished syncing {self.name}")
+
+    def get_table_schema(self, table_name: str, logger: logging.Logger, config: Mapping[str, Any]) -> object:
+        """Dynamically discover schema for a specific table by sampling entities"""
+        reader = AzureTableReader(logger, config)
+        client = reader.get_table_service_client()
+        table_client = client.get_table_client(table_name)
+
+        # Use a filter if you want, or "" for all entities
+        query_filter = ""  # or your filter string
+        entities = []
+        pages = table_client.query_entities(query_filter=query_filter, results_per_page=10).by_page()
+        try:
+            first_page = next(pages)
+            for i, entity in enumerate(first_page):
+                entities.append(entity)
+                if i >= 9:
+                    break
+        except StopIteration:
+            pass
+
+        properties = {
+            "PartitionKey": {"type": "string"},
+            "RowKey": {"type": "string"},
+        }
+
+        # Add all properties found in the sampled entities
+        for entity in entities:
+            for key, value in entity.items():
+                if key not in properties and key not in ("PartitionKey", "RowKey"):
+                    # Determine property type based on Python type
+                    if isinstance(value, str):
+                        # Check if it's a datetime string
+                        if key.lower().endswith(('date', 'time')) or 'timestamp' in key.lower():
+                            properties[key] = {
+                                "type": "string", 
+                                "format": "date-time",
+                                "airbyte_type": "timestamp_without_timezone"
+                            }
+                        else:
+                            properties[key] = {"type": "string"}
+                    elif isinstance(value, bool):
+                        properties[key] = {"type": "boolean"}
+                    elif isinstance(value, (int, float)):
+                        properties[key] = {"type": ["number", "integer"]}
+                    elif isinstance(value, dict):
+                        properties[key] = {"type": "object"}
+                    elif isinstance(value, list):
+                        properties[key] = {"type": "array"}
+                    else:
+                        # Default to string for unknown types
+                        properties[key] = {"type": "string"}
+
+        return {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "additionalProperties": True,
+            "properties": properties,
+        }

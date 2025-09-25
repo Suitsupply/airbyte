@@ -1,0 +1,5 @@
+[run]
+omit =
+    source_microsoft_sharepoint_user/spec.py
+    source_microsoft_sharepoint_user/source.py
+    source_microsoft_sharepoint_user/run.py
