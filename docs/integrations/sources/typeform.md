@@ -100,7 +100,20 @@ API rate limits \(2 requests per second\): [https://developer.typeform.com/get-s
   <summary>Expand to review</summary>
 
 | Version | Date       | Pull Request                                             | Subject                                                                                         |
-|:--------|:-----------| :------------------------------------------------------- |:------------------------------------------------------------------------------------------------|
+|:--------|:-----------|:---------------------------------------------------------|:------------------------------------------------------------------------------------------------|
+| 1.4.3 | 2025-09-11 | [66140](https://github.com/airbytehq/airbyte/pull/66140) | Update to CDK v7 |
+| 1.4.2 | 2025-05-31 | [53033](https://github.com/airbytehq/airbyte/pull/53033) | Update dependencies |
+| 1.4.1 | 2025-02-26 | [54690](https://github.com/airbytehq/airbyte/pull/54690) | Fix missing records for non `image` streams & formatting |
+| 1.4.0 | 2025-02-22 | [47018](https://github.com/airbytehq/airbyte/pull/47018) | Migrate to manifest-only format |
+| 1.3.27 | 2025-01-25 | [52428](https://github.com/airbytehq/airbyte/pull/52428) | Update dependencies |
+| 1.3.26 | 2025-01-18 | [52009](https://github.com/airbytehq/airbyte/pull/52009) | Update dependencies |
+| 1.3.25 | 2025-01-11 | [51403](https://github.com/airbytehq/airbyte/pull/51403) | Update dependencies |
+| 1.3.24 | 2025-01-04 | [50937](https://github.com/airbytehq/airbyte/pull/50937) | Update dependencies |
+| 1.3.23 | 2024-12-28 | [50797](https://github.com/airbytehq/airbyte/pull/50797) | Update dependencies |
+| 1.3.22 | 2024-12-21 | [50376](https://github.com/airbytehq/airbyte/pull/50376) | Update dependencies |
+| 1.3.21 | 2024-12-14 | [49799](https://github.com/airbytehq/airbyte/pull/49799) | Update dependencies |
+| 1.3.20 | 2024-12-12 | [49373](https://github.com/airbytehq/airbyte/pull/49373) | Starting with this version, the Docker image is now rootless. Please note that this and future versions will not be compatible with Airbyte versions earlier than 0.64 |
+| 1.3.19 | 2024-11-04 | [48301](https://github.com/airbytehq/airbyte/pull/48301) | Update dependencies |
 | 1.3.18 | 2024-10-29 | [46853](https://github.com/airbytehq/airbyte/pull/46853) | Update dependencies |
 | 1.3.17 | 2024-10-05 | [46479](https://github.com/airbytehq/airbyte/pull/46479) | Update dependencies |
 | 1.3.16 | 2024-09-28 | [46170](https://github.com/airbytehq/airbyte/pull/46170) | Update dependencies |
@@ -144,10 +157,10 @@ API rate limits \(2 requests per second\): [https://developer.typeform.com/get-s
 | 0.1.8 | 2022-08-09 | [15435](https://github.com/airbytehq/airbyte/pull/15435) | Update Forms stream schema |
 | 0.1.7 | 2022-06-20 | [13935](https://github.com/airbytehq/airbyte/pull/13935) | Update Responses stream schema |
 | 0.1.6 | 2022-05-23 | [12280](https://github.com/airbytehq/airbyte/pull/12280) | Full Stream Coverage |
-| 0.1.4 | 2021-12-08 | [8425](https://github.com/airbytehq/airbyte/pull/8425) | Update title, description fields in spec |
-| 0.1.3 | 2021-12-07 | [8466](https://github.com/airbytehq/airbyte/pull/8466) | Change Check Connection Function Logic |
-| 0.1.2 | 2021-10-11 | [6571](https://github.com/airbytehq/airbyte/pull/6571) | Support pulling data from a select set of forms |
-| 0.1.1 | 2021-09-06 | [5799](https://github.com/airbytehq/airbyte/pull/5799) | Add missed choices field to responses schema |
-| 0.1.0 | 2021-07-10 | [4541](https://github.com/airbytehq/airbyte/pull/4541) | Initial release for Typeform API supporting Forms and Responses streams |
+| 0.1.4 | 2021-12-08 | [8425](https://github.com/airbytehq/airbyte/pull/8425)   | Update title, description fields in spec |
+| 0.1.3 | 2021-12-07 | [8466](https://github.com/airbytehq/airbyte/pull/8466)   | Change Check Connection Function Logic |
+| 0.1.2 | 2021-10-11 | [6571](https://github.com/airbytehq/airbyte/pull/6571)   | Support pulling data from a select set of forms |
+| 0.1.1 | 2021-09-06 | [5799](https://github.com/airbytehq/airbyte/pull/5799)   | Add missed choices field to responses schema |
+| 0.1.0 | 2021-07-10 | [4541](https://github.com/airbytehq/airbyte/pull/4541)   | Initial release for Typeform API supporting Forms and Responses streams |
 
 </details>

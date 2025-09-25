@@ -1,8 +1,8 @@
-# Faker
+# Sample Data
 
 ## Sync overview
 
-The Sample Data (Faker) source generates sample data using the python
+The Sample Data source generates sample data using the python
 [`mimesis`](https://mimesis.name/en/master/) package.
 
 ### Output schema
@@ -103,8 +103,23 @@ None!
   <summary>Expand to review</summary>
 
 | Version     | Date       | Pull Request                                                                                                          | Subject                                                                                                         |
-|:------------|:-----------| :-------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
-| 6.2.20 | 2024-10-30 | [48013](https://github.com/airbytehq/airbyte/pull/48013) | Promoting release candidate 6.2.20-rc.1 to a main version. |
+|:------------|:-----------| :-------------------------------------------------------------------------------------------------------------------- |:----------------------------------------------------------------------------------------------------------------|
+| 6.2.33 | 2025-09-02 | [65914](https://github.com/airbytehq/airbyte/pull/65914) | Upgrade CDK to 6.28.0 and remove pendulum dependency |
+| 6.2.32 | 2025-08-23 | [65273](https://github.com/airbytehq/airbyte/pull/65273) | Update dependencies |
+| 6.2.31 | 2025-08-16 | [65006](https://github.com/airbytehq/airbyte/pull/65006) | Update dependencies |
+| 6.2.30 | 2025-08-09 | [64799](https://github.com/airbytehq/airbyte/pull/64799) | Update dependencies |
+| 6.2.29 | 2025-07-26 | [63953](https://github.com/airbytehq/airbyte/pull/63953) | Update dependencies |
+| 6.2.28 | 2025-07-19 | [63534](https://github.com/airbytehq/airbyte/pull/63534) | Update dependencies |
+| 6.2.27 | 2025-07-17 | [63354](https://github.com/airbytehq/airbyte/pull/63354) | Updated icon |
+| 6.2.26 | 2025-07-16 | [63342](https://github.com/airbytehq/airbyte/pull/63342) | Rendered name changed to `Sample Data` |
+| 6.2.26-rc.1 | 2025-06-16 | [61645](https://github.com/airbytehq/airbyte/pull/61645) | Update for testing                                                                                              |
+| 6.2.25-rc.1 | 2025-04-07 | [57500](https://github.com/airbytehq/airbyte/pull/57500) | Update for testing                                                                                              |
+| 6.2.24      | 2025-04-05 | [57263](https://github.com/airbytehq/airbyte/pull/57263) | Update dependencies                                                                                             |
+| 6.2.23      | 2025-03-29 | [56502](https://github.com/airbytehq/airbyte/pull/56502) | Update dependencies                                                                                             |
+| 6.2.22      | 2025-03-22 | [46821](https://github.com/airbytehq/airbyte/pull/46821) | Update dependencies                                                                                             |
+| 6.2.21      | 2025-03-11 | [55705](https://github.com/airbytehq/airbyte/pull/55705) | Promoting release candidate 6.2.21-rc.1 to a main version.                                                      |
+| 6.2.21-rc.1 | 2024-11-13 | [48013](https://github.com/airbytehq/airbyte/pull/48013) | Update for testing.                                                                                             |
+| 6.2.20      | 2024-10-30 | [48013](https://github.com/airbytehq/airbyte/pull/48013) | Promoting release candidate 6.2.20-rc.1 to a main version.                                                      |
 | 6.2.20-rc.1 | 2024-10-21 | [47221](https://github.com/airbytehq/airbyte/pull/46678)                                                              | Testing release candidate with RC suffix versioning.                                                            |
 | 6.2.19-rc.1 | 2024-10-21 | [47221](https://github.com/airbytehq/airbyte/pull/47221)                                                              | Testing release candidate with RC suffix versioning.                                                            |
 | 6.2.18-rc.1 | 2024-10-09 | [46678](https://github.com/airbytehq/airbyte/pull/46678)                                                              | Testing release candidate with RC suffix versioning.                                                            |

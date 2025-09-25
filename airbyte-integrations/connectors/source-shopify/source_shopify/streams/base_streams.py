@@ -12,19 +12,20 @@ from urllib.parse import parse_qsl, urlparse
 
 import pendulum as pdm
 import requests
+from requests.exceptions import RequestException
+from source_shopify.http_request import ShopifyErrorHandler
+from source_shopify.shopify_graphql.bulk.job import ShopifyBulkManager
+from source_shopify.shopify_graphql.bulk.query import DeliveryZoneList, ShopifyBulkQuery
+from source_shopify.transform import DataTypeEnforcer
+from source_shopify.utils import ApiTypeEnum, ShopifyNonRetryableErrors
+from source_shopify.utils import EagerlyCachedStreamState as stream_state_cache
+from source_shopify.utils import ShopifyRateLimiter as limiter
+
 from airbyte_cdk.models import SyncMode
 from airbyte_cdk.sources.streams.core import StreamData
 from airbyte_cdk.sources.streams.http import HttpClient, HttpStream
 from airbyte_cdk.sources.streams.http.error_handlers import ErrorHandler, HttpStatusErrorHandler
 from airbyte_cdk.sources.streams.http.error_handlers.default_error_mapping import DEFAULT_ERROR_MAPPING
-from requests.exceptions import RequestException
-from source_shopify.http_request import ShopifyErrorHandler
-from source_shopify.shopify_graphql.bulk.job import ShopifyBulkManager
-from source_shopify.shopify_graphql.bulk.query import ShopifyBulkQuery
-from source_shopify.transform import DataTypeEnforcer
-from source_shopify.utils import EagerlyCachedStreamState as stream_state_cache
-from source_shopify.utils import ShopifyNonRetryableErrors
-from source_shopify.utils import ShopifyRateLimiter as limiter
 
 
 class ShopifyStream(HttpStream, ABC):
@@ -32,7 +33,7 @@ class ShopifyStream(HttpStream, ABC):
     logger = logging.getLogger("airbyte")
 
     # Latest Stable Release
-    api_version = "2024-04"
+    api_version = "2025-01"
     # Page size
     limit = 250
 
@@ -88,7 +89,7 @@ class ShopifyStream(HttpStream, ABC):
                 records = json_response.get(self.data_field, []) if self.data_field is not None else json_response
                 yield from self.produce_records(records)
             except RequestException as e:
-                self.logger.warning(f"Unexpected error in `parse_ersponse`: {e}, the actual response data: {response.text}")
+                self.logger.warning(f"Unexpected error in `parse_response`: {e}, the actual response data: {response.text}")
                 yield {}
 
     def produce_records(
@@ -177,6 +178,11 @@ class IncrementalShopifyStream(ShopifyStream, ABC):
     # Setting the check point interval to the limit of the records output
     state_checkpoint_interval = 250
 
+    def __init__(self, config: Dict):
+        super().__init__(config)
+        # _filter_checkpointed_cursor used to checkpoint streams with cursor field - ID in job.get_adjusted_job_end
+        self._filter_checkpointed_cursor = None
+
     @property
     def filter_by_state_checkpoint(self) -> bool:
         """
@@ -215,7 +221,12 @@ class IncrementalShopifyStream(ShopifyStream, ABC):
                 params[self.filter_field] = stream_state.get(self.cursor_field)
         return params
 
-    def track_checkpoint_cursor(self, record_value: Union[str, int]) -> None:
+    def track_checkpoint_cursor(self, record_value: Union[str, int], filter_record_value: Optional[str] = None) -> None:
+        """
+        Tracks _checkpoint_cursor value (values from cursor field) and _filter_checkpointed_cursor value (value from filter field).
+        _filter_checkpointed_cursor value is only used when cursor field is ID for streams like Customer Address etc.
+        When after canceled/failed job source tries to adjust stream slice (see ShopifyBulkManager._adjust_slice_end()).
+        """
         if self.filter_by_state_checkpoint:
             # set checkpoint cursor
             if not self._checkpoint_cursor:
@@ -223,6 +234,10 @@ class IncrementalShopifyStream(ShopifyStream, ABC):
             # track checkpoint cursor
             if str(record_value) >= str(self._checkpoint_cursor):
                 self._checkpoint_cursor = record_value
+
+            if filter_record_value:
+                if not self._filter_checkpointed_cursor or str(filter_record_value) >= str(self._filter_checkpointed_cursor):
+                    self._filter_checkpointed_cursor = filter_record_value
 
     def should_checkpoint(self, index: int) -> bool:
         return self.filter_by_state_checkpoint and index >= self.state_checkpoint_interval
@@ -241,7 +256,8 @@ class IncrementalShopifyStream(ShopifyStream, ABC):
             for index, record in enumerate(records_slice, 1):
                 if self.cursor_field in record:
                     record_value = record.get(self.cursor_field, self.default_state_comparison_value)
-                    self.track_checkpoint_cursor(record_value)
+                    filter_record_value = record.get(self.filter_field) if self.filter_field else None
+                    self.track_checkpoint_cursor(record_value, filter_record_value)
                     if record_value:
                         if record_value >= state_value:
                             yield record
@@ -814,7 +830,7 @@ class IncrementalShopifyGraphQlBulkStream(IncrementalShopifyStream):
                 self.emit_slice_message(start, slice_end)
                 yield {"start": start.to_rfc3339_string(), "end": slice_end.to_rfc3339_string()}
                 # increment the end of the slice or reduce the next slice
-                start = self.job_manager.get_adjusted_job_end(start, slice_end, self._checkpoint_cursor)
+                start = self.job_manager.get_adjusted_job_end(start, slice_end, self._checkpoint_cursor, self._filter_checkpointed_cursor)
         else:
             # for the streams that don't support filtering
             yield {}
@@ -854,3 +870,29 @@ class IncrementalShopifyGraphQlBulkStream(IncrementalShopifyStream):
         yield from self.filter_records_newer_than_state(stream_state, self.sort_output_asc(records))
         # add log message about the checkpoint value
         self.emit_checkpoint_message()
+
+
+class FullRefreshShopifyGraphQlBulkStream(ShopifyStream):
+    data_field = "graphql"
+    http_method = "POST"
+
+    query: DeliveryZoneList
+    response_field: str
+
+    def request_body_json(
+        self,
+        stream_state: Optional[Mapping[str, Any]],
+        stream_slice: Optional[Mapping[str, Any]] = None,
+        next_page_token: Optional[Mapping[str, Any]] = None,
+    ) -> Optional[Mapping[str, Any]]:
+        return {"query": self.query().get()}
+
+    @limiter.balance_rate_limit(api_type=ApiTypeEnum.graphql.value)
+    def parse_response(self, response: requests.Response, **kwargs) -> Iterable[Mapping]:
+        if response.status_code is requests.codes.OK:
+            try:
+                json_response = response.json().get("data", {}).get(self.response_field, {}).get("nodes", [])
+                yield from json_response
+            except RequestException as e:
+                self.logger.warning(f"Unexpected error in `parse_response`: {e}, the actual response data: {response.text}")
+                yield {}

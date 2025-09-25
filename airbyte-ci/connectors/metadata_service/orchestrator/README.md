@@ -104,6 +104,11 @@ commands, see the [Dagster CLI documentation](https://docs.dagster.io/_apidocs/c
 poetry run pytest
 ```
 
+## Changelog
+
+### 0.7.1
+Update Python version requirement from 3.10 to 3.11.
+
 ## Deploying to Dagster Automatically
 
 GitHub Actions is used to automatically deploy the orchestrator to Dagster Cloud
@@ -227,7 +232,6 @@ RESOURCES = {
     **DATA_WAREHOUSE_RESOURCE_TREE,
     **REGISTRY_RESOURCE_TREE,
     **REGISTRY_ENTRY_RESOURCE_TREE,
-    **CONNECTOR_TEST_REPORT_RESOURCE_TREE,
 }
 ```
 
@@ -243,5 +247,3 @@ Each resource represents a specific functionality or service that can be used by
 - DATA_WAREHOUSE_RESOURCE_TREE: Contains resources for handling connector metrics.
 - REGISTRY_RESOURCE_TREE: Contains resources for managing registries.
 - REGISTRY_ENTRY_RESOURCE_TREE: Contains resources for managing registry entries.
-- CONNECTOR_TEST_REPORT_SENSOR_RESOURCE_TREE: Contains resources for handling connector test reports.
-- CONNECTOR_TEST_REPORT_RESOURCE_TREE: Contains resources for generating connector test reports.
