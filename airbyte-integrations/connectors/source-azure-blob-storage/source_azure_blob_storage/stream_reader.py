@@ -140,15 +140,29 @@ class SourceAzureBlobStorageStreamReader(AbstractFileBasedStreamReader):
 
     def open_file(self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger) -> IOBase:
         try:
-            result = open(
+            return open(
                 f"azure://{self.config.azure_blob_storage_container_name}/{file.uri}",
                 transport_params={"client": self.azure_blob_service_client},
                 mode=mode.value,
                 encoding=encoding,
             )
-        except OSError:
+        except OSError as exc:
             logger.warning(
-                f"We don't have access to {file.uri}. The file appears to have become unreachable during sync."
+                f"We don't have access to {file.uri}. The file appears to have become unreachable during sync. "
                 f"Check whether key {file.uri} exists in `{self.config.azure_blob_storage_container_name}` container and/or has proper ACL permissions"
             )
-        return result
+            # Propagate so the framework can emit a proper trace and handle retries/stop
+            raise
+
+    # The following methods are required by the abstract base class but are
+    # only used when the connector supports file transfer/write operations.
+    # Azure Blob Storage source connector does not upload/write files, so we
+    # provide minimal implementations to satisfy the interface.
+
+    def file_size(self, file: RemoteFile) -> int:
+        """Return the size of a remote file. Not used for this source."""
+        return 0
+
+    def upload(self, file: RemoteFile, local_directory: str, logger: logging.Logger):
+        """Uploading is not supported by this source connector."""
+        raise NotImplementedError("Upload operation is not supported by SourceAzureBlobStorage")

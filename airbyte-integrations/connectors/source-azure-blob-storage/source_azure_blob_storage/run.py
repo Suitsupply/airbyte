@@ -31,18 +31,27 @@ def run():
         MigrateLegacyConfig.migrate(sys.argv[1:], source)
         MigrateCredentials.migrate(sys.argv[1:], source)
     except Exception:
-        print(
-            AirbyteMessage(
-                type=Type.TRACE,
-                trace=AirbyteTraceMessage(
-                    type=TraceType.ERROR,
-                    emitted_at=int(datetime.now().timestamp() * 1000),
-                    error=AirbyteErrorTraceMessage(
-                        message="Error starting the sync. This could be due to an invalid configuration or catalog. Please contact Support for assistance.",
-                        stack_trace=traceback.format_exc(),
-                    ),
+        # Pydantic v2 compatibility: use model_dump_json
+        error_msg = AirbyteMessage(
+            type=Type.TRACE,
+            trace=AirbyteTraceMessage(
+                type=TraceType.ERROR,
+                emitted_at=int(datetime.now().timestamp() * 1000),
+                error=AirbyteErrorTraceMessage(
+                    message="Error starting the sync. This could be due to an invalid configuration or catalog. Please contact Support for assistance.",
+                    stack_trace=traceback.format_exc(),
                 ),
-            ).json()
+            ),
         )
+        try:
+            # Newer models (Pydantic v2-based) expose model_dump_json
+            print(error_msg.model_dump_json())
+        except Exception:
+            # Fallback to legacy .json() if available
+            try:
+                print(error_msg.json())
+            except Exception:
+                # Final fallback
+                print(str(error_msg))
     else:
         launch(source, args)
