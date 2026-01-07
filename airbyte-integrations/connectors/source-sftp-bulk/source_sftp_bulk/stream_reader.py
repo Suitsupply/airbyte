@@ -4,17 +4,12 @@
 import datetime
 import logging
 import stat
-<<<<<<< HEAD
 import gzip
 import zipfile
 from io import BytesIO, IOBase, TextIOWrapper
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
-# Update imports to remove unavailable classes
-=======
 import time
-from io import IOBase
-from typing import Iterable, List, Optional, Tuple
 
 import psutil
 from typing_extensions import override
@@ -22,7 +17,7 @@ from typing_extensions import override
 from airbyte_cdk import FailureType
 from airbyte_cdk.models import AirbyteRecordMessageFileReference
 from airbyte_cdk.sources.file_based.exceptions import FileSizeLimitError
->>>>>>> c881019f52fab95ef266b1154a40800483e56670
+
 from airbyte_cdk.sources.file_based.file_based_stream_reader import AbstractFileBasedStreamReader, FileReadMode
 from airbyte_cdk.sources.file_based.file_record_data import FileRecordData
 from airbyte_cdk.sources.file_based.remote_file import RemoteFile
@@ -156,7 +151,6 @@ class SourceSFTPBulkStreamReader(AbstractFileBasedStreamReader):
             raise
 
     def open_file(self, file: RemoteFile, mode: FileReadMode, encoding: Optional[str], logger: logging.Logger) -> IOBase:
-<<<<<<< HEAD
         try:
             # Determine file mode for gzip and standard files
             open_mode = 'rt' if mode == FileReadMode.READ else 'rb'
@@ -209,10 +203,7 @@ class SourceSFTPBulkStreamReader(AbstractFileBasedStreamReader):
         except Exception as e:
             logger.exception(f"Error opening file {file.uri}: {e}")
             raise Exception(f"Error opening file {file.uri}: {e}")
-        
-=======
-        remote_file = self.sftp_client.sftp_connection.open(file.uri, mode=mode.value)
-        return remote_file
+
 
     @staticmethod
     def create_progress_handler(local_file_path: str, logger: logging.Logger):
@@ -312,7 +303,7 @@ class SourceSFTPBulkStreamReader(AbstractFileBasedStreamReader):
 
         return file_record_data, file_reference
 
->>>>>>> c881019f52fab95ef266b1154a40800483e56670
+
     def file_size(self, file: RemoteFile):
         file_size = self.sftp_client.sftp_connection.stat(file.uri).st_size
         return file_size
